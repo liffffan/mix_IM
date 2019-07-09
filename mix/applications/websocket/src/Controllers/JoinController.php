@@ -6,6 +6,8 @@ use Mix\Helper\JsonHelper;
 use Mix\Redis\Coroutine\RedisConnection;
 use Mix\WebSocket\Frame\TextFrame;
 use WebSocket\Models\JoinForm;
+use WebSocket\Models\LoginForm;
+use WebSocket\Models\PersonForm;
 
 /**
  * Class JoinController
@@ -16,12 +18,62 @@ class JoinController
 {
 
     /**
+     * 用户登录
+     * @param $params
+     * @param $id
+     */
+
+    public function actionLogin($params)
+    {
+        // 验证数据
+        $model             = new LoginForm();
+        $model->attributes = $params;
+        $model->setScenario('actionLogin');
+        if (!$model->validate()) {
+            $response = new TextFrame([
+                'data' => JsonHelper::encode([
+                    'result' => [
+                        'message' => $model->getError(),
+                    ],
+                    'id'     => $params['id'],
+                ], JSON_UNESCAPED_UNICODE),
+            ]);
+            app()->ws->push($response);
+            return;
+        }
+
+
+        $redis = app()->redisPool->getConnection();
+        $redis->set($params['id'], app()->ws->fd);
+        $redis->release();
+
+
+        // 检测消息是否发送成功
+        app()->ws->push(new TextFrame([
+            'data' => JsonHelper::encode([
+                'result' => [
+                    'message' => "登录成功",
+                ],
+                'id'     => $params['id'],
+            ], JSON_UNESCAPED_UNICODE),
+        ]));
+
+
+
+    }
+
+
+
+
+    /**
      * 加入房间
      * @param $params
      * @param $id
      */
     public function actionRoom($params, $id)
     {
+
+
         // 验证数据
         $model             = new JoinForm();
         $model->attributes = $params;
@@ -38,6 +90,28 @@ class JoinController
             app()->ws->push($response);
             return;
         }
+
+        // 权限验证
+        /*
+        $db     = app()->dbPool->getConnection();
+        $ret = $db->table('user')->where(['uid', '=', 1])->get();
+
+        if ($model->token != $ret[0]['token']){
+            $response = new TextFrame([
+                'data' => JsonHelper::encode([
+                    'result' => [
+                        'message' => 'token验证不通过'
+                    ],
+                    'id'     => $id,
+                ], JSON_UNESCAPED_UNICODE),
+            ]);
+            app()->ws->push($response);
+            return;
+        }
+
+        $db->release();
+        */
+
 
         // 保存当前加入的房间
         app()->tcpSession->set('roomid', $model->roomid);
@@ -83,6 +157,7 @@ class JoinController
         $conn->release();
 
         // 给我自己发送加入消息
+        $fd = app()->ws->fd;
         app()->ws->push(new TextFrame([
             'data' => JsonHelper::encode([
                 'result' => [
@@ -91,6 +166,57 @@ class JoinController
                 'id'     => $id,
             ], JSON_UNESCAPED_UNICODE),
         ]));
+
+        var_dump(app()->ws->fd);
+
     }
+
+    public function actionPerson($params)
+    {
+
+        // 验证数据
+        $model             = new PersonForm();
+        $model->attributes = $params;
+        $model->setScenario('actionPerson');
+        if (!$model->validate()) {
+            $response = new TextFrame([
+                'data' => JsonHelper::encode([
+                    'result' => [
+                        'message' => $model->getError(),
+                    ],
+                ], JSON_UNESCAPED_UNICODE),
+            ]);
+            app()->ws->push($response);
+            return;
+        }
+
+
+
+        // 给对应的用户发送消息
+        $result = app()->ws->push(new TextFrame([
+            'data' => JsonHelper::encode([
+                'result' => [
+                    'message' => "你好啊.".$params['did'],
+                ],
+                'id'     => $params['id'],
+            ], JSON_UNESCAPED_UNICODE),
+        ]), $params['did']);
+
+
+        var_dump($result);
+
+
+        // 检测消息是否发送成功
+        app()->ws->push(new TextFrame([
+            'data' => JsonHelper::encode([
+                'result' => [
+                    'message' => "ok",
+                ],
+                'id'     => $params['id'],
+            ], JSON_UNESCAPED_UNICODE),
+        ]));
+    }
+
+
 
 }

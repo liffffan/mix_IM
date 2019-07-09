@@ -9,15 +9,14 @@ use Mix\Validate\Validator;
  * @package WebSocket\Models
  * @author liu,jian <coder.keda@gmail.com>
  */
-class JoinForm extends Validator
+class LoginForm extends Validator
 {
 
     /**
      * 房间id
      * @var int
      */
-    public $roomid;
-    public $token;
+    public $id;
 
     /**
      * 规则
@@ -26,7 +25,7 @@ class JoinForm extends Validator
     public function rules()
     {
         return [
-            'roomid' => ['integer', 'unsigned' => true, 'minLength' => 1, 'maxLength' => 10],
+            'id' => ['integer', 'unsigned' => true, 'minLength' => 1, 'maxLength' => 10],
             'token' => ['string']
         ];
     }
@@ -40,7 +39,7 @@ class JoinForm extends Validator
     public function scenarios()
     {
         return [
-            'actionRoom' => ['required' => ['roomid', 'token']],
+            'actionLogin' => ['required' => ['id', 'token']],
         ];
     }
 
